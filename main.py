@@ -22,6 +22,12 @@ def read_pcd(file_path):
     return data
 
 def write_ply(file_path, planes, sphere_points):
+    def generate_color():
+        rgb = np.random.choice(range(256), size=3)
+        if rgb[0] > 200 and rgb[1] > 200:  # red and green high -> yellow
+            rgb[0] = np.random.choice(range(100)) # decrease red
+        return rgb
+
     with open(file_path, "w") as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
@@ -48,9 +54,9 @@ def write_ply(file_path, planes, sphere_points):
             f.write(f"{point[0]} {point[1]} {point[2]} 255 255 0\n")
 
         for i in range(len(planes)):
-            plane_rg = np.random.choice(range(256), size=2)
+            plane_color = generate_color()
             for point in planes[i]:
-                f.write(f"{point[0]} {point[1]} {point[2]} {plane_rg[0]} {plane_rg[1]} 50\n") # 50 for blue to make sure it's not yellow
+                f.write(f"{point[0]} {point[1]} {point[2]} {plane_color[0]} {plane_color[1]} {plane_color[2]}\n")
 
 
 def fit_sphere(points):
