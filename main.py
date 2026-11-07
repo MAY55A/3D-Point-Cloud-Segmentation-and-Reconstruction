@@ -83,7 +83,7 @@ def distance_points_sphere(params, points):
     distances = np.linalg.norm(points - center, axis=1)
     return np.abs(distances - radius)
 
-def ransac_sphere(points, iterations=2000, threshold=1):
+def ransac_sphere(points, iterations=2000, threshold=1, max_radius=None, min_radius=None):
     best_inliers = []
     best_params = None
 
@@ -92,6 +92,11 @@ def ransac_sphere(points, iterations=2000, threshold=1):
         params = fit_sphere(sample)
         if params is None:
             continue
+        if max_radius is not None and params[-1] > max_radius:
+            continue
+        if min_radius is not None and params[-1] < min_radius:
+            continue
+
         inliers = points[distance_points_sphere(params, points) < threshold]
 
         if len(inliers) > len(best_inliers):
@@ -100,7 +105,7 @@ def ransac_sphere(points, iterations=2000, threshold=1):
 
     best_params = fit_sphere(best_inliers)
     best_inliers_mask = distance_points_sphere(best_params, points) < threshold
-    return best_inliers_mask
+    return best_params, best_inliers_mask
 
 def distance_points_plane(params, points):
     a, b, c, d = params
@@ -160,7 +165,7 @@ new_planes, points = find_planes(points, min_inliers=30000, threshold=30, iterat
 planes.extend(new_planes)
 print(f"Found {len(planes)} planes before sphere detection")
 
-inliers_mask = ransac_sphere(points, threshold=150, iterations=3000)
+params, inliers_mask = ransac_sphere(points, threshold=30, iterations=3000, max_radius=300, min_radius=100)
 inliers = points[inliers_mask]
 points = points[~inliers_mask]
 print(f"Found sphere with {len(inliers)} inliers")
