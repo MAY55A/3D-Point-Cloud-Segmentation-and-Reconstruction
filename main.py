@@ -1,7 +1,6 @@
+#from plot import plot_planes_sphere
 import numpy as np
-import matplotlib.pyplot as plt
-import math
-
+import sys
 
 def read_pcd(file_path):
     data = []
@@ -154,32 +153,41 @@ def find_planes(points, min_inliers, threshold=20, iterations=2000):
         points = points[~inliers_mask]
     return planes, points
 
-planes = []
-points = read_pcd("example2.pcd")
-# decrease threshold -> more planes (less condensed)
-# too big threshold -> non planes are detected (part of sphere)
-# increase min_inliers -> less planes
 
-# Find big planes, then find sphere, then find small planes
-new_planes, points = find_planes(points, min_inliers=30000, threshold=30, iterations=2000)
-planes.extend(new_planes)
-print(f"Found {len(planes)} planes before sphere detection")
+def main():
+    if len(sys.argv) != 3:
+        print("Data file path and output file name must be provided!")
+        return
 
-params, inliers_mask = ransac_sphere(points, threshold=30, iterations=3000, max_radius=300, min_radius=100)
-inliers = points[inliers_mask]
-points = points[~inliers_mask]
-print(f"Found sphere with {len(inliers)} inliers")
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
 
-new_planes, points = find_planes(points, min_inliers=5000, threshold=10, iterations=1000)
-planes.extend(new_planes)
-print(f"Found {len(new_planes)} planes after sphere detection")
+    np.random.seed(42)
+    planes = []
+    points = read_pcd(input_file)
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(points[:, 0], points[:, 1], points[:, 2], color='gray', s=1, label='Points')
-for i, plane in enumerate(planes):
-    ax.scatter(plane[:, 0], plane[:, 1], plane[:, 2], s=1, label=f'Plane {i+1}')
+    # decrease threshold -> more planes (less condensed)
+    # too big threshold -> non planes are detected (part of sphere)
+    # increase min_inliers -> less planes
 
-ax.scatter(inliers[:, 0], inliers[:, 1], inliers[:, 2], color='black', s=1, label='Sphere')
-ax.legend()
-plt.show()
+    # Find big planes, then find sphere, then find smaller planes
+    new_planes, points = find_planes(points, min_inliers=30000, threshold=50, iterations=2000)
+    planes.extend(new_planes)
+    print(f"Found {len(planes)} planes before sphere detection")
+
+    params, inliers_mask = ransac_sphere(points, threshold=30, iterations=3000, max_radius=300, min_radius=100)
+    inliers = points[inliers_mask]
+    points = points[~inliers_mask]
+    print(f"Found sphere with {len(inliers)} inliers")
+
+    new_planes, points = find_planes(points, min_inliers=5000, threshold=20, iterations=1000)
+    planes.extend(new_planes)
+    print(f"Found {len(new_planes)} planes after sphere detection")
+
+    #plot_planes_sphere(points, planes, params, inliers)
+
+    write_ply(output_file, planes, inliers)
+
+if __name__ == "__main__":
+    main()
+
