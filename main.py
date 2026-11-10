@@ -4,20 +4,26 @@ import sys
 
 def read_pcd(file_path):
     data = []
-    with open(file_path, "r") as f:
-        # Ignore first lines before data
-        while True:
-            line = f.readline()
-            if line.startswith("DATA"):
-                break
+    try:
+        with open(file_path, "r") as f:
+            # Ignore first lines before data
+            while True:
+                line = f.readline()
+                if line.startswith("DATA"):
+                    break
 
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            data.append(line.strip().split()[:3]) # take only first 3 cols (x, y, z)
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                data.append(line.strip().split()[:3]) # take only first 3 cols (x, y, z)
 
-    data = np.array(data, dtype=float)
+        data = np.array(data, dtype=float)
+
+    except Exception as e:
+        print(f"Error reading PCD file: {e}")
+        sys.exit(1)
+
     return data
 
 def write_ply(file_path, planes, sphere_points):
@@ -27,37 +33,41 @@ def write_ply(file_path, planes, sphere_points):
             rgb[0] = np.random.choice(range(100)) # decrease red
         return rgb
 
-    with open(file_path, "w") as f:
-        f.write("ply\n")
-        f.write("format ascii 1.0\n")
-        f.write("element vertex ")
-        f.write(f"{len(sphere_points)}\n")
-        f.write("property float x\n")
-        f.write("property float y\n")
-        f.write("property float z\n")
-        f.write("property uchar red\n")
-        f.write("property uchar green\n")
-        f.write("property uchar blue\n")
-        for plane in planes:
+    try:
+        with open(file_path, "w") as f:
+            f.write("ply\n")
+            f.write("format ascii 1.0\n")
             f.write("element vertex ")
-            f.write(f"{len(plane)}\n")
+            f.write(f"{len(sphere_points)}\n")
             f.write("property float x\n")
             f.write("property float y\n")
             f.write("property float z\n")
             f.write("property uchar red\n")
             f.write("property uchar green\n")
             f.write("property uchar blue\n")
-        f.write("end_header\n")
+            for plane in planes:
+                f.write("element vertex ")
+                f.write(f"{len(plane)}\n")
+                f.write("property float x\n")
+                f.write("property float y\n")
+                f.write("property float z\n")
+                f.write("property uchar red\n")
+                f.write("property uchar green\n")
+                f.write("property uchar blue\n")
+            f.write("end_header\n")
 
-        for point in sphere_points:
-            f.write(f"{point[0]} {point[1]} {point[2]} 255 255 0\n")
+            for point in sphere_points:
+                f.write(f"{point[0]} {point[1]} {point[2]} 255 255 0\n")
 
-        for i in range(len(planes)):
-            plane_color = generate_color()
-            for point in planes[i]:
-                f.write(f"{point[0]} {point[1]} {point[2]} {plane_color[0]} {plane_color[1]} {plane_color[2]}\n")
+            for i in range(len(planes)):
+                plane_color = generate_color()
+                for point in planes[i]:
+                    f.write(f"{point[0]} {point[1]} {point[2]} {plane_color[0]} {plane_color[1]} {plane_color[2]}\n")
+    except Exception as e:
+        print(f"Error writing PLY file: {e}")
+        sys.exit(1)
 
-
+# Sphere fitting and RANSAC function
 def fit_sphere(points):
     X = points[:, 0]
     Y = points[:, 1]
@@ -106,10 +116,8 @@ def ransac_sphere(points, iterations=2000, threshold=1, max_radius=None, min_rad
     best_inliers_mask = distance_points_sphere(best_params, points) < threshold
     return best_params, best_inliers_mask
 
-def distance_points_plane(params, points):
-    a, b, c, d = params
-    return np.abs((a*points[:, 0]+b*points[:, 1]+c*points[:, 2]+d)/np.sqrt(a**2+b**2+c**2))
 
+# Plane fitting and RANSAC function
 def fit_plane(points):
     centroid = np.mean(points, axis=0)
     _, s, vh = np.linalg.svd(points - centroid, full_matrices=False)
@@ -118,6 +126,10 @@ def fit_plane(points):
     n = vh[2]
     d = -np.dot(n, centroid)
     return n[0], n[1], n[2], d
+
+def distance_points_plane(params, points):
+    a, b, c, d = params
+    return np.abs((a*points[:, 0]+b*points[:, 1]+c*points[:, 2]+d)/np.sqrt(a**2+b**2+c**2))
 
 def ransac_plane(points, threshold, iterations):
     best_inliers = []
@@ -157,7 +169,7 @@ def find_planes(points, min_inliers, threshold=20, iterations=2000):
 def main():
     if len(sys.argv) != 3:
         print("Data file path and output file name must be provided!")
-        return
+        sys.exit(1)
 
     input_file = sys.argv[1]
     output_file = sys.argv[2]
